@@ -1,44 +1,124 @@
-const { Usuario } = require('../models/');
-const bcrypt = require('bcryptjs');
-const servToken = require('../services/token');
+const models = require('../models');
+var bcrypt = require('bcryptjs');
+const token = require('../services/token');
+
 
 module.exports = {
-    
-    list : async (req, res, next) => {
+    add: async(req, res, next) => {
         try {
-            const re = await Usuario.findAll()
-            res.status(200).json({re})                
-        } catch (error) {
-            res.status(500).json({'error':"Paso algo..."})
-            next(error)
+            req.body.password = await bcrypt.hash(req.body.password, 10);
+            const reg = await models.Usuario.create(req.body);
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
         }
     },
-
-    registrer : async (req, res, next) => {
-        res.status(200).send('lo hacemos en el sprint 3')
-
-    },
-
-    login : async (req, res, next) => {
+    query: async(req, res, next) => {
         try {
-            if(user){
-                const contrasnhaValida = bcrypt.compareSync(req.body.password, user.password)
-            if(contrasnhaValida){
-                const token = servToken.encode(user.id, user.rol)
-                res.status(200).send({
-                    auth: true,
-                    tokenReturn : token,
-                    user : user
-                })
-            } else{
-                res.status(401).send({auth : false, tokenReturn: null, reason:"Invalid Password"})
+            const reg = await models.Usuario.findOne({ id: req.query.id });
+            if (!reg) {
+                res.status(404).send({
+                    message: 'El registro no existe'
+                });
+            } else {
+                res.status(200).json(reg);
             }
-            } else{
-                res.status(404).send('Usuario no existe')
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    list: async(req, res, next) => {
+        try {
+            let valor = req.query.valor;
+            const reg = await models.Usuario.findAll();
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    update: async(req, res, next) => {
+        try {
+            let pas = req.body.password;
+            const reg0 = await models.Usuario.findOne({ where: { id: req.body.id } });
+            if (pas != reg0.password) {
+                req.body.password = await bcrypt.hash(req.body.password, 10);
             }
-        } catch (error) {
-            res.status(500).json({'error':'Paso algo...'})
-            next(error)
+            const reg = await models.Usuario.update({ rol: req.body.rol, nombre: req.body.nombre, tipo_documento: req.body.tipo_documento, num_documento: req.body.num_documento, direccion: req.body.direccion, telefono: req.body.telefono, email: req.body.email, password: req.body.password }, { where: { id: req.body.id } });
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    remove: async(req, res, next) => {
+        try {
+            const reg = await models.Usuario.findByIdAndDelete({ id: req.body.id });
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    activate: async(req, res, next) => {
+        try {
+            const reg = await models.Usuario.update({ estado: 1 }, { where: { id: req.body.id } });
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    deactivate: async(req, res, next) => {
+        try {
+            const reg = await models.Usuario.update({ estado: 0 }, { where: { id: req.body.id } });
+            res.status(200).json(reg);
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
+        }
+    },
+    login: async(req, res, next) => {
+        try {
+            console.log(req.body.email)
+            let user = await models.Usuario.findOne({ where: { email: req.body.email } });
+            if (user) {
+                let match = await bcrypt.compare(req.body.password, user.password);
+                if (match) {
+                    console.log(user.rol);
+                    let tokenReturn = await token.encode(user.id, user.rol);
+                    res.status(200).json({ user, tokenReturn });
+                } else {
+                    res.status(401).send({
+                        message: 'Password Incorrecto'
+                    });
+                }
+            } else {
+                res.status(404).send({
+                    message: 'No existe el usuario'
+                });
+            }
+        } catch (e) {
+            res.status(500).send({
+                message: 'Ocurrió un error'
+            });
+            next(e);
         }
     }
 }
